@@ -1,0 +1,1 @@
+# minimal_gaze_precision_detection
