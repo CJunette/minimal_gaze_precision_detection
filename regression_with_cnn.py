@@ -33,20 +33,18 @@ class CustomDataset(Dataset):
         self.labels = []
         for class_name in file_path_list:
             row_val, col_val = map(int, class_name.replace("row_", "").replace("col_", "").split('-'))
+            image_names = sorted(os.listdir(os.path.join(root_dir, class_name)))
             if self.train:
                 # 如果是训练数据，则选择每个类别的第1张图片
-                image_name = os.listdir(os.path.join(root_dir, class_name))[0]
+                valid_image_name_list = [image_names[0], image_names[3], image_names[6]]
+            else:
+                # 如果是验证数据，则选择每个类别的第4和第7张图片
+                valid_image_name_list = [image_names[1], image_names[4], image_names[7]]
+
+            for image_name in valid_image_name_list:
                 self.image_paths.append(os.path.join(root_dir, class_name, image_name))
                 self.labels.append((row_val, col_val))
-            else:
-                # image_name = os.listdir(os.path.join(root_dir, class_name))[3]
-                # self.image_paths.append(os.path.join(root_dir, class_name, image_name))
-                # self.labels.append((row_val, col_val))
-                # 如果是验证数据，则选择每个类别的第4和第7张图片
-                image_names = sorted(os.listdir(os.path.join(root_dir, class_name)))
-                for image_name in [image_names[3], image_names[6]]:
-                    self.image_paths.append(os.path.join(root_dir, class_name, image_name))
-                    self.labels.append((row_val, col_val))
+
 
     def __len__(self):
         return len(self.image_paths)
@@ -256,7 +254,7 @@ def validate_model_of_different_districts(horizontal_blocks, vertical_blocks):
     set_seed(42)
 
     train_loader, val_loader = prepare_data_select_with_step()
-    checkpoint = torch.load(f"models/custom_regression_cnn/custom_regression_cnn_000/best-checkpoint.ckpt")
+    checkpoint = torch.load(f"models/custom_regression_cnn/{configs.custom_model_name}/best-checkpoint.ckpt")
     model_state_dict = checkpoint['state_dict']
     model_state_dict = {k.replace("model.", ""): v for k, v in model_state_dict.items()}
 
@@ -317,7 +315,7 @@ def validate_model_of_different_districts(horizontal_blocks, vertical_blocks):
     # visualize avg_precision_list
     fig, ax = plt.subplots()
     im = ax.imshow(avg_precision_grid)
-    im.set_clim(1.5, 2.5)
-
+    im.set_clim(0.5, 3)
+    fig.colorbar(im)
     plt.show()
 
