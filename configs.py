@@ -15,7 +15,7 @@ screen_height = 1080
 screen_padding_horizontal = 75
 screen_padding_vertical = 75
 
-custom_model_name = "custom_regression_cnn_000"
+custom_model_name = "custom_regression_cnn_001"
 num_epochs = 50
 
 

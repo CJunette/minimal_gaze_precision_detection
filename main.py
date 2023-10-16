@@ -22,6 +22,6 @@ if __name__ == "__main__":
 
     # classification_with_cnn.train_model()
     # regression_with_cnn.train_model()
-    regression_with_cnn.validate_model_of_different_districts()
+    regression_with_cnn.validate_model_of_different_districts(20, 10)
 
 
