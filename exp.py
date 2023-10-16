@@ -83,8 +83,8 @@ class MainWindow(QMainWindow):
             self.close()
         elif event.key() == Qt.Key_S:
             if self.exp_index >= 0:
-                self.change_exp_index("increase")
                 self.capture_video()
+                self.change_exp_index("increase")
             else:
                 self.exp_index = 0
 
@@ -97,8 +97,8 @@ class MainWindow(QMainWindow):
             # print("next")
         elif event.key() == Qt.Key_W:
             if self.exp_index >= 0:
-                self.change_exp_index("decrease")
                 self.capture_video()
+                self.change_exp_index("decrease")
             else:
                 self.exp_index = 0
 
@@ -114,6 +114,7 @@ class MainWindow(QMainWindow):
         if change == "increase":
             self.exp_index += 1
             if self.exp_index >= configs.row_num * configs.col_num:
+                time.sleep(0.5)
                 self.close() # 到实验最后一个点，则关闭。
         elif change == "decrease":
             self.exp_index -= 1
@@ -153,6 +154,7 @@ class MainWindow(QMainWindow):
 
     def jump_to_last(self):
         # TODO 在不同模式下，跳转到上一个点的方式不同。
+        print(self.current_row, self.current_col)
         if configs.mode == "horizontal_first":
             self.current_row, self.current_col = self.jump_to_last_specific(self.current_row, self.current_col, self.row_num, self.col_num)
         elif configs.mode == "vertical_first":
@@ -160,9 +162,6 @@ class MainWindow(QMainWindow):
         elif configs.mode == "random":
             self.current_col, self.current_row = self.jump_to_random()
 
-        if self.current_row == -1 or self.current_col == -1:
-            self.current_row = self.row_num - 1
-            self.current_col = self.col_num - 1
 
     def jump_to_next_specific(self, layer_1_index, layer_2_index, layer_1_range, layer_2_range):
         layer_2_index += 1
@@ -174,7 +173,7 @@ class MainWindow(QMainWindow):
 
     def jump_to_last_specific(self, layer_1_index, layer_2_index, layer_1_range, layer_2_range):
         layer_2_index -= 1
-        if layer_2_range < 0:
+        if layer_2_index < 0:
             layer_2_index = layer_2_range - 1
             layer_1_index -= 1
         return layer_1_index, layer_2_index
@@ -183,17 +182,16 @@ class MainWindow(QMainWindow):
         row, col = self.random_indices[self.exp_index]
         return row, col
 
-
     def capture_video(self):
+        self.scene.removeItem(self.point)
+        self.point.setBrush(QBrush(QColor(200, 0, 0)))
+        self.scene.addItem(self.point)
+        QCoreApplication.processEvents()
+
         if configs.bool_capture_video:
-            file_path = f"output/subject_{configs.subject_num}/{configs.mode}/col_{self.current_col}-row_{self.current_row}"
+            file_path = f"output/subject_{configs.subject_num}/{configs.mode}/row_{self.current_row}-col_{self.current_col}"
             if not os.path.exists(file_path):
                 os.makedirs(file_path)
-
-            self.scene.removeItem(self.point)
-            self.point.setBrush(QBrush(QColor(255, 0, 0)))
-            self.scene.addItem(self.point)
-            QCoreApplication.processEvents()
 
             for i in range(10):
                 ret, frame = self.cap.read()
