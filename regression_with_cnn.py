@@ -255,13 +255,7 @@ def train_model():
 def validate_model_of_different_districts(horizontal_blocks, vertical_blocks):
     set_seed(42)
 
-
-    train_loader_list, val_loader_list, train_dataset_list, val_dataset_list, train_group_tag_list, val_group_tag_list = \
-        prepare_data_within_block(horizontal_blocks, vertical_blocks)
-
-
-
-
+    train_loader, val_loader = prepare_data_select_with_step()
     checkpoint = torch.load(f"models/custom_regression_cnn/custom_regression_cnn_000/best-checkpoint.ckpt")
     model_state_dict = checkpoint['state_dict']
     model_state_dict = {k.replace("model.", ""): v for k, v in model_state_dict.items()}
@@ -271,14 +265,11 @@ def validate_model_of_different_districts(horizontal_blocks, vertical_blocks):
     model.cuda()
     model.eval()
 
-    combined_val_dataset = ConcatDataset(val_dataset_list)
-    combined_val_loader = DataLoader(combined_val_dataset, batch_size=32, shuffle=False)
-
     prediction_list = []
     precision_list = []
 
     with torch.no_grad():
-        for images, labels in combined_val_loader:
+        for images, labels in val_loader:
             images = images.cuda()  # Move images to GPU
             outputs = model(images)
             prediction_list.extend(outputs.cpu().numpy())
@@ -286,31 +277,46 @@ def validate_model_of_different_districts(horizontal_blocks, vertical_blocks):
             precision_2 = np.sqrt(np.sum(precision_1 ** 2, axis=1))
             precision_list.extend(precision_2)
 
-    # with torch.no_grad():
-    #     all_prediction_list_1 = []
-    #     for dataloader in val_loader_list:
-    #         all_prediction_list_2 = []
-    #         for images, _ in dataloader:
-    #             outputs = model(images)
-    #             all_prediction_list_2.extend(outputs.numpy())
-    #         all_prediction_list_1.append(all_prediction_list_2)
+    horizontal_block_step = ceil(configs.col_num / horizontal_blocks)
+    vertical_block_step = ceil(configs.row_num / vertical_blocks)
+    indices_of_block_list_1 = []
+    for vertical_index in range(vertical_blocks):
+        for horizontal_index in range(horizontal_blocks):
+            print(f"preparing data: vertical-{vertical_index} horizontal-{horizontal_index}")
+            indices_of_block_list_2 = []
+            # tag_list = []
+            for vertical_step_index in range(vertical_block_step):
+                for horizontal_step_index in range(horizontal_block_step):
+                    indices_of_block_list_2.append([vertical_index * vertical_block_step + vertical_step_index, horizontal_index * horizontal_block_step + horizontal_step_index])
+                    # tag_list.append((vertical_index * vertical_block_step + vertical_step_index, horizontal_index * horizontal_block_step + horizontal_step_index))
+            indices_of_block_list_2 = np.array(indices_of_block_list_2)
+            indices_of_block_list_1.append(indices_of_block_list_2)
 
-    precision_list = np.array(precision_list).reshape(-1, vertical_blocks * horizontal_blocks)
-    avg_precision_list = np.mean(precision_list, axis=0)
-    avg_precision_grid = [[None for _ in range(horizontal_blocks)] for _ in range(vertical_blocks)]
-    # for i in range(val_group_tag_list):
-    #     avg_precision_grid[val_group_tag_list[i][0]][val_group_tag_list[i][1]] = avg_precision_list[i]
-    avg_precision_list = avg_precision_list.reshape(vertical_blocks, horizontal_blocks)
+    reshaped_precision_list = np.array(precision_list).reshape(-1, int(len(prediction_list) / (configs.col_num * configs.row_num)))
+    reshaped_precision_list = np.array([reshaped_precision_list[:, i] for i in range(len(reshaped_precision_list[0]))])
+    precision_grids = [reshaped_precision_list[i].reshape(configs.row_num, configs.col_num) for i in range(len(reshaped_precision_list))]
+    reshaped_precision_grid = [[[] for _ in range(horizontal_blocks)] for _ in range(vertical_blocks)]
+
+    for block_index in range(len(indices_of_block_list_1)):
+        row_index = block_index // horizontal_blocks
+        col_index = block_index % horizontal_blocks
+        for point_index in range(len(indices_of_block_list_1[block_index])):
+            point_vertical_index = indices_of_block_list_1[block_index][point_index][0]
+            point_horizontal_index = indices_of_block_list_1[block_index][point_index][1]
+            for repetition_index in range(len(precision_grids)):
+                reshaped_precision_grid[row_index][col_index].append(precision_grids[repetition_index][point_vertical_index][point_horizontal_index])
+
+    avg_precision_grid = np.mean(reshaped_precision_grid, axis=2)
 
     print()
-    for i in range(len(avg_precision_list)):
-        for j in range(len(avg_precision_list[i])):
-            print(f"{avg_precision_list[i][j]:.3f}", end="\t")
+    for i in range(len(avg_precision_grid)):
+        for j in range(len(avg_precision_grid[i])):
+            print(f"{avg_precision_grid[i][j]:.3f}", end="\t")
         print()
 
     # visualize avg_precision_list
     fig, ax = plt.subplots()
-    im = ax.imshow(avg_precision_list)
+    im = ax.imshow(avg_precision_grid)
     im.set_clim(1.5, 2.5)
 
     plt.show()
